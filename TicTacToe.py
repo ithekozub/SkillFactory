@@ -58,4 +58,4 @@ def main(board):
 main(board)
 
 input("Для выхода нажмите Enter.")
-input("Для выхода нажмите Enter.")
+
