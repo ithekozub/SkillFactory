@@ -28,10 +28,10 @@ class Dot:
         return f"Dot({self.x}, {self.y})"
 
 class Ship:
-    def __init__(self, bow, l, o):
+    def __init__(self, bow, d, l):
         self.l = l
         self.bow = bow
-        self.o = o
+        self.d = d
         self.lives = l
 
     @property
@@ -44,10 +44,10 @@ class Ship:
             now_x = self.bow.x
             now_y = self.bow.y
 
-            if self.o == 0:
-                now_x += i
-            elif self.o == 1:
+            if self.d:
                 now_y += i
+            else:
+                now_x += i
 
             ship_dots.append(Dot(now_x, now_y))
 
@@ -62,20 +62,20 @@ class Board:
         self.hid = hid
         self.dead = 0
         self.field = [ ["O"]*size for _ in range(size) ]
-        self.ocup = []
+        self.occupy = []
         self.ships = []
 
     def add_ship(self, ship):
         for d in ship.dots:
-            if self.out(d) or d in self.ocup:
+            if self.out(d) or d in self.occupy:
                 raise BoardWrongShipException()
 
-            for d in ship.dots:
-                self.field[d.x][d.y] = "■"
-                self.ocup.append(d)
+        for d in ship.dots:
+            self.field[d.x][d.y] = "■"
+            self.occupy.append(d)
 
             self.ships.append(ship)
-            self.ocup.append(d)
+            self.contour(ship)
 
     def contour(self, ship, verb=False):
         near = [
@@ -87,10 +87,11 @@ class Board:
         for d in ship.dots:
             for dx, dy in near:
                 now = Dot(d.x + dx, d.y + dy)
-                if not (self.out(now)) and now in self.ocup:
+
+                if not (self.out(now)) and now not in self.occupy:
                     if verb:
                         self.field[now.x][now.y] = "."
-                    self.ocup.append(now)
+                    self.occupy.append(now)
 
 
     def out(self, d):
@@ -98,15 +99,15 @@ class Board:
 
     def shot(self, d):
         if self.out(d):
-            raise BoardOutExeption()
+            raise BoardOutException()
 
-        if d in self.ocup:
-            raise BoardUsedExeption()
+        if d in self.occupy:
+            raise BoardUsedException()
 
-        self.ocup.append(d)
+        self.occupy.append(d)
 
         for ship in self.ships:
-            if ship.shooten(d):
+            if d in ship.dots:
                 ship.lives -= 1
                 self.field[d.x][d.y] = "X"
                 if ship.lives == 0:
@@ -122,10 +123,10 @@ class Board:
         return False
 
     def start(self):
-        self.ocup = []
+        self.occupy = []
 
     def win(self):
-        return  self.dead == len(self.ships)
+        return self.dead == len(self.ships)
 
     def __str__(self):
         res = ""
@@ -151,7 +152,7 @@ class Player:
                 aim = self.ask()
                 repeat = self.enemy.shot(aim)
                 return repeat
-            except BoardExeption as e:
+            except BoardException as e:
                 print(e)
 
 
@@ -164,7 +165,7 @@ class AI(Player):
 class User(Player):
     def ask(self):
         while True:
-            cords = input("Вы ходите: ").split()
+            cords = input(f"Введите координаты    ").split()
 
             if len(cords) != 2:
                 print(" Введите 2 координаты! ")
@@ -185,7 +186,7 @@ class Game:
         self.size = size
         pl_board = self.rnd_board()
         ai_board = self.rnd_board()
-        ai_board.hid = True
+        ai_board.hid = False
 
         self.ai = AI(ai_board, pl_board)
         self.us = User(pl_board, ai_board)
@@ -205,7 +206,7 @@ class Game:
                 attempts += 1
                 if attempts > 2000:
                     return None
-                ship = Ship(Dot(randint(0, self.size), randint(0, self.size)), l, randint(0, 1))
+                ship = Ship(Dot(randint(0, self.size), randint(0, self.size)), randint(0, 1), l)
                 try:
                     board.add_ship(ship)
                     break
@@ -227,7 +228,7 @@ class Game:
 
     def print_head(self):
         print("-" * 20)
-        print("Доска пользователя:")
+        print("Доска человека:")
         print(self.us.board)
         print("-" * 20)
         print("Доска компьютера:")
@@ -241,7 +242,7 @@ class Game:
 
             if num % 2 == 0:
                 print("-" * 20)
-                print("Ходит пользователь!")
+                print("Ходит человек!")
                 repeat = self.us.move()
             else:
                 print("-" * 20)
@@ -250,17 +251,14 @@ class Game:
             if repeat:
                 num -= 1
 
-            if self.ai.board.win():
+            if self.us.board.dead == 7:
                 self.print_head()
                 print("Компьютер выиграл!")
-
-
                 break
 
-            if self.us.board.win():
+            if self.ai.board.dead == 7:
                 self.print_head()
-
-                print("Пользователь выиграл!")
+                print("Человек выиграл!")
                 break
             num += 1
 
@@ -268,6 +266,6 @@ class Game:
         self.greet()
         self.loop()
 
+
 g = Game()
 g.start()
-
